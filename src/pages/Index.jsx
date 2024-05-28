@@ -1,15 +1,22 @@
-import { Box, Container, VStack, HStack, Text, Input, Button, Flex } from "@chakra-ui/react";
+import { Box, Container, VStack, HStack, Text, Input, Button, Flex, Spinner } from "@chakra-ui/react";
+import { usePosts, useAddPost, useAddReaction } from "../integrations/supabase/index.js";
 import { useState } from "react";
 
 const Index = () => {
-  const [posts, setPosts] = useState([]);
+  const { data: posts, isLoading, isError, error } = usePosts();
+  const addPostMutation = useAddPost();
+  const addReactionMutation = useAddReaction();
   const [newPost, setNewPost] = useState("");
 
   const handlePostSubmit = () => {
     if (newPost.trim() !== "") {
-      setPosts([...posts, newPost]);
+      addPostMutation.mutate({ title: newPost, body: newPost, author_id: "user-id-placeholder" });
       setNewPost("");
     }
+  };
+
+  const handleReaction = (postId, emoji) => {
+    addReactionMutation.mutate({ post_id: postId, user_id: "user-id-placeholder", emoji });
   };
 
   return (
@@ -23,17 +30,28 @@ const Index = () => {
 
       {/* Main Content */}
       <Container maxW="container.md" py={6}>
-        <VStack spacing={4} align="stretch">
-          {posts.length === 0 ? (
-            <Text>No posts yet. Be the first to post!</Text>
-          ) : (
-            posts.map((post, index) => (
-              <Box key={index} p={4} bg="gray.100" borderRadius="md" boxShadow="md">
-                <Text>{post}</Text>
-              </Box>
-            ))
-          )}
-        </VStack>
+        {isLoading ? (
+          <Spinner />
+        ) : isError ? (
+          <Text>Error: {error.message}</Text>
+        ) : (
+          <VStack spacing={4} align="stretch">
+            {posts.length === 0 ? (
+              <Text>No posts yet. Be the first to post!</Text>
+            ) : (
+              posts.map((post) => (
+                <Box key={post.id} p={4} bg="gray.100" borderRadius="md" boxShadow="md">
+                  <Text>{post.title}</Text>
+                  <HStack spacing={2}>
+                    <Button size="sm" onClick={() => handleReaction(post.id, "👍")}>👍</Button>
+                    <Button size="sm" onClick={() => handleReaction(post.id, "❤️")}>❤️</Button>
+                    <Button size="sm" onClick={() => handleReaction(post.id, "😂")}>😂</Button>
+                  </HStack>
+                </Box>
+              ))
+            )}
+          </VStack>
+        )}
       </Container>
 
       {/* Post Submission Form */}
@@ -45,7 +63,7 @@ const Index = () => {
               value={newPost}
               onChange={(e) => setNewPost(e.target.value)}
             />
-            <Button colorScheme="blue" onClick={handlePostSubmit}>Post</Button>
+            <Button colorScheme="blue" onClick={handlePostSubmit} isLoading={addPostMutation.isLoading}>Post</Button>
           </HStack>
         </Container>
       </Box>
